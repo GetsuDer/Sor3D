@@ -65,9 +65,9 @@ void init()
 void relax()
 {
 
-	for(k=1; k<=N-2; k++)
-	for(j=1; j<=N-2; j++)
 	for(i=1; i<=N-2; i++)
+	for(j=1; j<=N-2; j++)
+	for(k=1; k<=N-2; k++)
 	{ 
 		float e;
 		e=A[i][j][k];
@@ -82,9 +82,9 @@ void verify()
 	float s;
 
 	s=0.;
-	for(k=0; k<=N-1; k++)
-	for(j=0; j<=N-1; j++)
 	for(i=0; i<=N-1; i++)
+	for(j=0; j<=N-1; j++)
+	for(k=0; k<=N-1; k++)
 	{
 		s=s+A[i][j][k]*(i+1)*(j+1)*(k+1)/(N*N*N);
 	}

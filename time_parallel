@@ -3,8 +3,8 @@
 iter_number=10
 for (( iter=1; iter<=iter_number; iter++ ))
 do
-    time ./origin > origin_out
-    rm origin_out 
+    time ./parallel > parallel_out
+    rm parallel_out 
 
 done
 
