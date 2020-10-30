@@ -5,14 +5,13 @@
 
 #define  Max(a,b) ((a)>(b)?(a):(b))
 
-#define  N   (2*2*2*2*2*2+2)
+#define  N   (2*2*2*2*2*2*2+2)
 double   maxeps = 0.1e-7;
 int itmax = 100;
-double eps;
 int i,j,k;
 double A [N][N][N];
-
-void relax();
+bool end = false;
+double relax();
 void init();
 void verify(); 
 
@@ -26,10 +25,11 @@ int main(int an, char **as)
 
 	for(it=1; it<=itmax; it++)
 	{
-		eps = 0.;
-		relax();
-		printf( "it=%4i   eps=%f\n", it,eps);
-		if (eps < maxeps) break;
+        if (!end) {
+            double eps = relax();
+		    printf( "it=%4i   eps=%f\n", it,eps);
+	    	if (eps < maxeps) end = true;
+        }
 	}
 
 	verify();
@@ -62,9 +62,9 @@ void init()
     }
 }
 
-void relax()
+double relax()
 {
-
+    double rel_eps = 0.;
 	for(i=1; i<=N-2; i++)
 	for(j=1; j<=N-2; j++)
 	for(k=1; k<=N-2; k++)
@@ -72,8 +72,9 @@ void relax()
 		float e;
 		e=A[i][j][k];
 		A[i][j][k]=(A[i-1][j][k]+A[i+1][j][k]+A[i][j-1][k]+A[i][j+1][k]+A[i][j][k-1]+A[i][j][k+1])/6.;
-		eps=Max(eps, fabs(e-A[i][j][k]));
+		rel_eps=Max(rel_eps, fabs(e-A[i][j][k]));
 	}    
+    return rel_eps;
 }
 
 
