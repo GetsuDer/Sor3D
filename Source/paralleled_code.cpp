@@ -5,10 +5,11 @@
 
 #define  Max(a,b) ((a)>(b)?(a):(b))
 
-#define  N   (2*2*2*2*2*2+2)
+#define  N   (2*2*2*2*2*2*2+2)
 double   maxeps = 0.1e-7;
 const int itmax = 100;
 double A [N][N][N];
+double it_eps[itmax];
 bool end = false;
 bool working_iterations[itmax + 1]; // to choose necessary iteration
 bool access_to_matrix[itmax][N]; // to control, if previous iteration ended necessary submatrix
@@ -30,13 +31,9 @@ int main(int an, char **as)
 #pragma omp parallel
     {
     while (!end) {
-#pragma omp critical
-        {
-            fprintf(stderr, "Iterating...\n"); 
-        }
         //choose iteration
         int it = 0;
-#pragma omp critical (iteration_choosing)
+#pragma omp critical
         {
             for (; it < itmax; it++) {
                 if (!working_iterations[it]) break;
@@ -44,15 +41,11 @@ int main(int an, char **as)
             if (it < itmax) {
                 working_iterations[it] = true; //iteration choosed
             }
-        } //pragma omp critical (iteration_choosing)
-        
+        } //pragma omp critical
         
         if (it < itmax && !end) {
             double eps = relax(it);
-#pragma omp critical (printf) 
-            {
-		        printf( "it=%4i   eps=%f\n", it + 1,eps);
-            } //pragma omp critical (printf)
+            it_eps[it] = eps;
         
             if (eps < maxeps) end = true;
             
@@ -63,8 +56,10 @@ int main(int an, char **as)
          }
     }
     } // pragma omp parallel
-
-    fprintf(stderr, "ended\n");
+    
+    for (int i = 0; i < itmax; i++) {
+        printf("it=%4i  eps=%f\n", i + 1, it_eps[i]);
+    }
 	verify();
 
 	return 0;
@@ -97,10 +92,6 @@ void init()
 
 double relax(int iteration)
 {
-#pragma omp critical
-    {
-        fprintf(stderr, "iteration %d began\n", iteration);
-    }
     double rel_eps = 0.;
     int i, j, k;
 	for(i=1; i<=N-2; i++) {
@@ -119,10 +110,6 @@ double relax(int iteration)
         access_to_matrix[iteration + 1][i - 1] = true;
     }  
     access_to_matrix[iteration + 1][i - 1] = true; 
-#pragma omp critical
-    {
-       fprintf(stderr, "iteration %d ended\n", iteration);
-    } 
     return rel_eps;
 }
 
