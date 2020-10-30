@@ -5,13 +5,15 @@
 
 #define  Max(a,b) ((a)>(b)?(a):(b))
 
-#define  N   (2*2*2*2*2*2*2+2)
+#define  N   (2*2*2*2*2*2+2)
 double   maxeps = 0.1e-7;
-int itmax = 100;
-int i,j,k;
+const int itmax = 100;
 double A [N][N][N];
 bool end = false;
-double relax();
+bool working_iterations[itmax + 1]; // to choose necessary iteration
+bool access_to_matrix[itmax][N]; // to control, if previous iteration ended necessary submatrix
+
+double relax(int);
 void init();
 void verify(); 
 
@@ -19,19 +21,50 @@ int main(int an, char **as)
 {
     (void) an;
     (void) as;
-    int it;
+    for (int i = 0; i < N; i++) {
+        access_to_matrix[0][i] = true;
+    }
 
 	init();
 
-	for(it=1; it<=itmax; it++)
-	{
-        if (!end) {
-            double eps = relax();
-		    printf( "it=%4i   eps=%f\n", it,eps);
-	    	if (eps < maxeps) end = true;
+#pragma omp parallel
+    {
+    while (!end) {
+#pragma omp critical
+        {
+            fprintf(stderr, "Iterating...\n"); 
         }
-	}
+        //choose iteration
+        int it = 0;
+#pragma omp critical (iteration_choosing)
+        {
+            for (; it < itmax; it++) {
+                if (!working_iterations[it]) break;
+            }
+            if (it < itmax) {
+                working_iterations[it] = true; //iteration choosed
+            }
+        } //pragma omp critical (iteration_choosing)
+        
+        
+        if (it < itmax && !end) {
+            double eps = relax(it);
+#pragma omp critical (printf) 
+            {
+		        printf( "it=%4i   eps=%f\n", it + 1,eps);
+            } //pragma omp critical (printf)
+        
+            if (eps < maxeps) end = true;
+            
+        } else {
 
+            end = true;
+            break;
+         }
+    }
+    } // pragma omp parallel
+
+    fprintf(stderr, "ended\n");
 	verify();
 
 	return 0;
@@ -59,21 +92,37 @@ void init()
     for (int i_it = 0; i_it < N; i_it++) {
         init_part(A[i_it], N, i_it);
     }
-    }
+    } // pragma omp parallel
 }
 
-double relax()
+double relax(int iteration)
 {
+#pragma omp critical
+    {
+        fprintf(stderr, "iteration %d began\n", iteration);
+    }
     double rel_eps = 0.;
-	for(i=1; i<=N-2; i++)
-	for(j=1; j<=N-2; j++)
-	for(k=1; k<=N-2; k++)
-	{ 
-		float e;
-		e=A[i][j][k];
-		A[i][j][k]=(A[i-1][j][k]+A[i+1][j][k]+A[i][j-1][k]+A[i][j+1][k]+A[i][j][k-1]+A[i][j][k+1])/6.;
-		rel_eps=Max(rel_eps, fabs(e-A[i][j][k]));
-	}    
+    int i, j, k;
+	for(i=1; i<=N-2; i++) {
+        
+        while (!access_to_matrix[iteration][i]); //wait for other threads to work
+            
+        for(j=1; j<=N-2; j++) {
+            for(k=1; k<=N-2; k++) {
+                float e;  //it is a bit strange, because A consists of double, not float
+ 		        e=A[i][j][k];
+		        A[i][j][k]=(A[i-1][j][k]+A[i+1][j][k]+A[i][j-1][k]+A[i][j+1][k]+A[i][j][k-1]+A[i][j][k+1])/6.;
+		        rel_eps=Max(rel_eps, fabs(e-A[i][j][k]));
+
+	        }
+        }
+        access_to_matrix[iteration + 1][i - 1] = true;
+    }  
+    access_to_matrix[iteration + 1][i - 1] = true; 
+#pragma omp critical
+    {
+       fprintf(stderr, "iteration %d ended\n", iteration);
+    } 
     return rel_eps;
 }
 
@@ -83,6 +132,7 @@ void verify()
 	float s;
 
 	s=0.;
+    int i, j, k;
 	for(i=0; i<=N-1; i++)
 	for(j=0; j<=N-1; j++)
 	for(k=0; k<=N-1; k++)
