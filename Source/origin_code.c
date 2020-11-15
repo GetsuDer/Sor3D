@@ -1,9 +1,10 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "omp.h"
 #define  Max(a,b) ((a)>(b)?(a):(b))
 
-#define  N   (2*2*2*2*2*2+2)
+#define  N   ((1 << 6) +2)
 double   maxeps = 0.1e-7;
 int itmax = 100;
 int i,j,k;
@@ -20,7 +21,7 @@ int main(int an, char **as)
     (void) an;
     (void) as;
     int it;
-
+    double time_begin = omp_get_wtime();
 	init();
 
 	for(it=1; it<=itmax; it++)
@@ -32,7 +33,8 @@ int main(int an, char **as)
 	}
 
 	verify();
-
+    double time_end = omp_get_wtime();
+    fprintf(stderr, "time = %lf\n", time_end - time_begin);
 	return 0;
 }
 

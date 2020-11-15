@@ -5,14 +5,15 @@
 
 #define  Max(a,b) ((a)>(b)?(a):(b))
 
-#define  N   (2*2*2*2*2*2*2+2)
+#define  N   ((1 << 6) + 2)
 double   maxeps = 0.1e-7;
-const int itmax = 100;
+#define  itmax 100
+
 double A [N][N][N];
 double it_eps[itmax];
-bool end = false;
-bool working_iterations[itmax + 1]; // to choose necessary iteration
-bool access_to_matrix[itmax][N]; // to control, if previous iteration ended necessary submatrix
+int end = 0;
+int working_iterations[itmax + 1]; // to choose necessary iteration
+int access_to_matrix[itmax][N]; // to control, if previous iteration ended necessary submatrix
 
 double relax(int);
 void init();
@@ -22,10 +23,13 @@ int main(int an, char **as)
 {
     (void) an;
     (void) as;
+    double time_begin = omp_get_wtime();
+    const int MAX_THREADS_NUM = strtol(as[1], NULL, 10);
+    int i;
     for (int i = 0; i < N; i++) {
-        access_to_matrix[0][i] = true;
+        access_to_matrix[0][i] = 1;
     }
-
+    omp_set_num_threads(MAX_THREADS_NUM);
 	init();
 
 #pragma omp parallel
@@ -39,7 +43,7 @@ int main(int an, char **as)
                 if (!working_iterations[it]) break;
             }
             if (it < itmax) {
-                working_iterations[it] = true; //iteration choosed
+                working_iterations[it] = 1; //iteration choosed
             }
         } //pragma omp critical
         
@@ -47,29 +51,30 @@ int main(int an, char **as)
             double eps = relax(it);
             it_eps[it] = eps;
         
-            if (eps < maxeps) end = true;
+            if (eps < maxeps) end = 1;
             
         } else {
 
-            end = true;
+            end = 1;
             break;
          }
     }
     } // pragma omp parallel
-    
-    for (int i = 0; i < itmax; i++) {
+    for (i = 0; i < itmax; i++) {
         printf("it=%4i  eps=%f\n", i + 1, it_eps[i]);
     }
 	verify();
-
+    double time_end = omp_get_wtime();
+    fprintf(stderr, "time = %lf\n", time_end - time_begin);
 	return 0;
 }
 
 
 void init_part(double matrix[N][N], int size, int i_it)
 {
-    for (int j_it = 0; j_it < size; j_it++) {
-        for (int k_it = 0; k_it < size; k_it++) {
+    int j_it, k_it;
+    for (j_it = 0; j_it < size; j_it++) {
+        for (k_it = 0; k_it < size; k_it++) {
             if (i_it == 0 || i_it == N - 1 || j_it == 0 || j_it == N - 1 || k_it == 0 || k_it == N - 1) {
                 matrix[j_it][k_it] = 0.;
             } else {
@@ -83,8 +88,9 @@ void init()
 {
 #pragma omp parallel
     {
+    int i_it;
 #pragma omp for 
-    for (int i_it = 0; i_it < N; i_it++) {
+    for (i_it = 0; i_it < N; i_it++) {
         init_part(A[i_it], N, i_it);
     }
     } // pragma omp parallel
@@ -107,9 +113,9 @@ double relax(int iteration)
 
 	        }
         }
-        access_to_matrix[iteration + 1][i - 1] = true;
+        access_to_matrix[iteration + 1][i - 1] = 1;
     }  
-    access_to_matrix[iteration + 1][i - 1] = true; 
+    access_to_matrix[iteration + 1][i - 1] = 1; 
     return rel_eps;
 }
 
