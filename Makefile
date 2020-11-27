@@ -3,7 +3,6 @@ CC = gcc
 MPI_CC = mpicc
 CFLAGS = -Wall -Wextra -Wformat -std=gnu11 -g
 CFLAGS_OPENMP = -fopenmp
-
 .PHONY: all clean origin origin_time mpi openmp parallel_time
 
 all: origin mpi openmp
