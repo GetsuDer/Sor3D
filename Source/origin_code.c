@@ -4,7 +4,7 @@
 #include "omp.h"
 #define  Max(a,b) ((a)>(b)?(a):(b))
 
-#define  N   ((1 << 6) +2)
+#define  N   ((1 << 2) +2)
 double   maxeps = 0.1e-7;
 int itmax = 100;
 int i,j,k;
@@ -23,6 +23,15 @@ int main(int an, char **as)
     int it;
     double time_begin = omp_get_wtime();
 	init();
+    for (i = 0; i <= N - 1; i++) {
+        for (j = 0; j <= N - 1; j++) {
+            for (k = 0; k <= N - 1; k++) {
+                fprintf(stderr, "%lf", A[i][j][k]);
+            }
+            fprintf(stderr, "\n");
+        }
+        fprintf(stderr, "\n");
+    }
 
 	for(it=1; it<=itmax; it++)
 	{

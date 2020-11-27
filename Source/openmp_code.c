@@ -60,6 +60,9 @@ int main(int an, char **as)
          }
     }
     } // pragma omp parallel
+    
+    
+    
     for (i = 0; i < itmax; i++) {
         printf("it=%4i  eps=%f\n", i + 1, it_eps[i]);
     }
@@ -84,6 +87,10 @@ void init_part(double matrix[N][N], int size, int i_it)
     }
 }
 
+
+
+
+
 void init()
 {
 #pragma omp parallel
@@ -96,6 +103,10 @@ void init()
     } // pragma omp parallel
 }
 
+
+
+
+
 double relax(int iteration)
 {
     double rel_eps = 0.;
@@ -106,7 +117,7 @@ double relax(int iteration)
             
         for(j=1; j<=N-2; j++) {
             for(k=1; k<=N-2; k++) {
-                float e;  //it is a bit strange, because A consists of double, not float
+                float e;
  		        e=A[i][j][k];
 		        A[i][j][k]=(A[i-1][j][k]+A[i+1][j][k]+A[i][j-1][k]+A[i][j+1][k]+A[i][j][k-1]+A[i][j][k+1])/6.;
 		        rel_eps=Max(rel_eps, fabs(e-A[i][j][k]));
@@ -118,6 +129,10 @@ double relax(int iteration)
     access_to_matrix[iteration + 1][i - 1] = 1; 
     return rel_eps;
 }
+
+
+
+
 
 
 void verify()

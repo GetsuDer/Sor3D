@@ -1,4 +1,7 @@
 origin
-parallel
+mpi
+openmp
 how_to
 Timer_Output/*
+out_*
+*.swp
