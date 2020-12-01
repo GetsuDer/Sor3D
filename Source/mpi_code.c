@@ -21,15 +21,17 @@ int main(int argc, char **argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     
     double time_start = MPI_Wtime();    
-    
+    if (size > N - 2) {
+        size = N - 2;
+    }
     int part_size = (N - 2) / size;
     int ind_first = part_size * rank, ind_last = ind_first + part_size;
     if (rank == size - 1) { //last process
         ind_last = N - 2;
     } 
 
-    double *matrix = (double *)calloc(N * N * (ind_last - ind_first), sizeof(double));
-    
+    double *matrix = (double *)calloc(N * N * (ind_last - ind_first + 2), sizeof(double));
+    matrix += N * N;
     int ind1, ind2, ind3;
     for (ind1 = 0; ind1 < ind_last - ind_first; ind1++) {
         for (ind2 = 0; ind2 <= N - 1; ind2++) {
@@ -45,15 +47,13 @@ int main(int argc, char **argv)
 
     MPI_Status status;
 //matrix initialized
-    double *prev_values = (double *)calloc(N * N, sizeof(double)); //values from other processes
-    double *next_values = (double *)calloc(N * N, sizeof(double)); //values form other processes... almost
     if (rank != size - 1) { //for last process next_values is always zero submatrix
         for (ind2 = 0; ind2 <= N - 1; ind2++) {
             for (ind3 = 0; ind3 <= N - 1; ind3++) {
                 if (ind2 == 0 || ind3 == 0 || ind3 == N - 1 || ind2 == N - 1 ) {
-                    *(next_values + ind2 * N + ind3) = 0;
+                    *(matrix + N * N * (ind_last - ind_first)+ ind2 * N + ind3) = 0;
                 } else {
-                    *(next_values + ind2 * N + ind3) = 4. + ind2 + ind3 + ind_last - ind_first;
+                    *(matrix + N * N * (ind_last - ind_first) + ind2 * N + ind3) = 4. + ind2 + ind3 + ind_last - ind_first;
                 }
             }
         }
@@ -64,27 +64,16 @@ int main(int argc, char **argv)
     // get valuesi
         if (rank) { // process zero does not recieves data from other processes here
             //on first iteration left values could be counted by process itself
-            MPI_Recv(prev_values, N * N, MPI_DOUBLE, rank - 1, it, MPI_COMM_WORLD, &status);
+            MPI_Recv(matrix - N * N, N * N, MPI_DOUBLE, rank - 1, it, MPI_COMM_WORLD, &status);
         }
         if (it && rank != size - 1) { // on first iteration next_values is already correct,
             //for last process next_values is ALWAYS correct
-            MPI_Recv(next_values, N * N, MPI_DOUBLE, rank + 1, it - 1, MPI_COMM_WORLD, &status);
+            MPI_Recv(matrix + N * N * (ind_last - ind_first), N * N, MPI_DOUBLE, rank + 1, it - 1, MPI_COMM_WORLD, &status);
         }
         // process values
         eps = 0;
-        // even if rank = 0, prev_values is correct
-        for (ind2 = 1; ind2 < N - 1; ind2++) {
-            for (ind3 = 1; ind3 < N - 1; ind3++) {
-                double old = *(matrix + ind2 * N + ind3);
-                *(matrix + ind2 * N + ind3) = (*(prev_values + ind2 * N + ind3) + 
-                    *(matrix + (ind2 - 1) * N + ind3) + *(matrix + (ind2 + 1) * N + ind3) +
-                    *(matrix + ind2 * N + ind3 - 1) + *(matrix + ind2 * N + ind3 + 1) + 
-                    *(matrix + N * N + ind2 * N + ind3)) / 6.;
-                eps = Max(eps, fabs(old - *(matrix + ind2 * N + ind3)));
-            }
-        }
 
-        for (ind1 = 1; ind1 < ind_last - ind_first - 1; ind1++) {
+        for (ind1 = 0; ind1 < ind_last - ind_first; ind1++) {
             for (ind2 = 1; ind2 < N - 1; ind2++) {
                 for (ind3 = 1; ind3 < N - 1; ind3++) {
                     double old = *(matrix + ind1 * N * N + ind2 * N + ind3);            
@@ -97,23 +86,6 @@ int main(int argc, char **argv)
             }
         }
     
-        for (ind2 = 1; ind2 < N - 1; ind2++) {
-            for (ind3 = 1; ind3 < N - 1; ind3++) {
-                double old = *(matrix + (ind_last - ind_first - 1) * N * N + ind2 * N + ind3);
-                *(matrix + (ind_last - ind_first - 1) * N * N + ind2 * N + ind3) = (*(matrix + (ind_last - ind_first - 2) * N * N + ind2 * N + ind3) +
-                    *(matrix + (ind_last - ind_first - 1) * N * N + (ind2 - 1) * N + ind3) + *(matrix + (ind_last - ind_first - 1) * N * N + (ind2 + 1) * N + ind3) +
-                    *(matrix + (ind_last - ind_first - 1) * N * N + ind2 * N + ind3 - 1) + *(matrix + (ind_last - ind_first - 1) * N * N + ind2 * N + ind3 + 1) +
-                    *(next_values + ind2 * N + ind3)) / 6.;
-                eps = Max(eps, fabs(old - *(matrix + (ind_last - ind_first - 1) * N * N + ind2 * N + ind3)));
-            }
-        }
-      //  if (eps < maxeps) {
-// stop work for all proccess... Wait, no. It is another epsilon, isn`t it?
-// So I should have epsilon for each iteration and send their parts between processes...
-// And somehow restore matrix values? Or may be i can just forget about this.
-      //  }
-    // send values
-    //
         if (rank != size - 1) {
             MPI_Send(matrix + (ind_last - ind_first - 1) * N * N, N * N, MPI_DOUBLE, rank + 1, it, MPI_COMM_WORLD);
         }
@@ -149,6 +121,7 @@ int main(int argc, char **argv)
         double time_end = MPI_Wtime();
         fprintf(stderr, "time = %lf\n", time_end - time_start);
     }
+    free(matrix - N * N);
     MPI_Finalize();
 	return 0;
 }
