@@ -24,6 +24,7 @@ int main(int argc, char **argv)
     if (size > N - 2) {
         size = N - 2;
     }
+    if (rank < size) {
     int part_size = (N - 2) / size;
     int ind_first = part_size * rank, ind_last = ind_first + part_size;
     if (rank == size - 1) { //last process
@@ -122,6 +123,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "time = %lf\n", time_end - time_start);
     }
     free(matrix - N * N);
+    }
     MPI_Finalize();
 	return 0;
 }
