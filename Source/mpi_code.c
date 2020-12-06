@@ -7,7 +7,7 @@
 #define  N   ((1 << 6) +2)
 double   maxeps = 0.1e-7;
 int itmax = 100;
-double eps;
+int eps;
 
 int main(int argc, char **argv)
 {
@@ -30,6 +30,8 @@ int main(int argc, char **argv)
     if (rank == size - 1) { //last process
         ind_last = N - 2;
     } 
+    double mpi_maxeps = maxeps * part_size;
+    int *eps_achieved = NULL; // necessary only for zero process 
 
     double *matrix = (double *)calloc(N * N * (ind_last - ind_first + 2), sizeof(double));
     matrix += N * N;
@@ -60,9 +62,43 @@ int main(int argc, char **argv)
         }
     }
 
+    if (!rank) {
+        eps_achieved = (int *)calloc(size, sizeof(int));
+    }
     int it;
     for (it = 0; it < itmax; it++) {
-    // get valuesi
+        int flag;
+        if (!rank) {
+// check, if have messages about eps achievement from other processes
+            for (int process_id = 1; process_id < size; process_id++) {
+                flag = 0;
+                MPI_Iprobe(process_id, itmax * 2, MPI_COMM_WORLD, &flag, &status);
+                if (flag) {
+                    eps_achieved[process_id] = 1;
+                    MPI_Recv(&flag, 1, MPI_INT, process_id, itmax * 2, MPI_COMM_WORLD, &status); // take this
+                    //message from queue
+                } 
+            }
+            flag = 1;
+            for (int i = 0; i < size; i++) {
+                if (!eps_achieved[i]) {
+                    flag = 0;
+                    break;
+                }
+            }
+            for (int i = 1; i < size; i++) { // in the beginning of each iteration
+                // message is sent to each process to notice it, that it is right to begin next iteration
+                MPI_Send(&flag, 1, MPI_INT, i, itmax * 2, MPI_COMM_WORLD);
+            }
+            if (flag) break; // out of iteration cycle
+
+        } else {
+            MPI_Recv(&flag, 1, MPI_INT, 0, itmax * 2, MPI_COMM_WORLD, &status);
+            if (flag) { // stop iterations!
+                break;
+            }
+        }
+    // get values
         if (rank) { // process zero does not recieves data from other processes here
             //on first iteration left values could be counted by process itself
             MPI_Recv(matrix - N * N, N * N, MPI_DOUBLE, rank - 1, it, MPI_COMM_WORLD, &status);
@@ -93,6 +129,19 @@ int main(int argc, char **argv)
         if (rank && it != itmax - 1) {
             MPI_Send(matrix, N * N, MPI_DOUBLE, rank - 1, it, MPI_COMM_WORLD);
         }
+
+        if (eps < mpi_maxeps) {
+            // notify zero process about this
+            if (!rank) {
+                eps_achieved[0] = 1;
+            } else {
+                int achieved = 1;
+                MPI_Send(&achieved, 1, MPI_INT, 0, itmax * 2, MPI_COMM_WORLD);
+            }
+         }
+
+
+
     }
 //now we should sum all counted values and sent them to process 0
 //process 0 should sum all recieved values and print them
