@@ -164,12 +164,10 @@ int main(int argc, char **argv)
             MPI_Recv(&S_tmp, 1, MPI_DOUBLE, ind1, itmax + 1, MPI_COMM_WORLD, &status);
             S += S_tmp;
         }
-        fprintf(stderr, "Result = %lf\n", S);
-        fflush(stderr);
     }
     if (!rank) {
         double time_end = MPI_Wtime();
-        fprintf(stderr, "time = %lf\n", time_end - time_start);
+        fprintf(stderr, "%d %d %lf\n", N - 2, size, time_end - time_start);
     }
     free(matrix - N * N);
     }
